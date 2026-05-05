@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% set active_page = "gallery" %}
+{% block title %}Gallery — Monks Curator{% endblock %}
+
+{% block content %}
+<div class="max-w-[1440px] mx-auto px-8 lg:px-16 py-12">
+
+    <!-- Credits Error Banner -->
+    <div id="credits-banner" class="{% if not gen_status.credits_error %}hidden{% endif %} mb-8 p-6 bg-error-container border border-error/20 flex items-start gap-4">
+        <span class="material-symbols-outlined text-error text-2xl mt-0.5">credit_card_off</span>
+        <div class="flex-1">
+            <h3 class="font-headline-sm text-error mb-1">Replicate Credits Exhausted</h3>
+            <p class="font-body-sm text-error/80" id="credits-message">{{ gen_status.credits_error_message or 'Your Replicate account has run out of credits. Please add credits to continue generating images.' }}</p>
+            <a href="https://replicate.com/account/billing" target="_blank" class="inline-flex items-center gap-2 mt-3 font-label-caps text-[11px] text-error hover:underline uppercase tracking-widest">
+                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                Go to Replicate Billing
+            </a>
+        </div>
+    </div>
+    
+    <!-- Rate Limit Error Banner -->
+    <div id="rate-limit-banner" class="{% if not gen_status.rate_limit_error %}hidden{% endif %} mb-8 p-6 bg-[#DDCBC0]/30 border border-[#DDCBC0] flex items-start gap-4">
+        <span class="material-symbols-outlined text-[#041909] text-2xl mt-0.5">hourglass_empty</span>
+        <div class="flex-1">
+            <h3 class="font-headline-sm text-[#041909] mb-1">Rate Limit Reached</h3>
+            <p class="font-body-sm text-[#041909]/80" id="rate-limit-message">{{ gen_status.rate_limit_message or 'You are making requests too quickly. Please wait a moment.' }}</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="mb-12">
+        <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-8 border-b border-[#041909]/10">
+            <div>
+                <span class="font-label-caps text-xs tracking-[0.2em] text-[#041909]/40 mb-4 block">REVIEW QUEUE</span>
+                <h1 class="font-headline-lg text-primary mb-2">Image Gallery</h1>
+                <p class="text-body-lg text-secondary/70">Review generated fashion images. Approve or reject to regenerate.</p>
+            </div>
+            <div class="flex flex-col items-end gap-6">
+                <!-- Size Slider -->
+                <div class="hidden md:flex items-center gap-3 bg-white/50 backdrop-blur-sm py-2 px-4 rounded-full border border-[#041909]/10">
+                    <span class="material-symbols-outlined text-lg text-[#041909]/40">crop_square</span>
+                    <input type="range" id="grid-size-slider" min="1" max="6" value="3" 
+                           class="w-32 h-1 bg-[#041909]/20 appearance-none outline-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#426149]">
+                    <span class="material-symbols-outlined text-lg text-[#041909]/40">grid_view</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Run Generation Button -->
+                    <button id="run-btn" onclick="runGeneration()"
+                            class="bg-[#426149] text-white font-label-caps px-8 py-4 text-sm uppercase tracking-widest flex items-center gap-3 hover:bg-[#2b4933] transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            {% if gen_status.running %}disabled{% endif %}>
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                        <span id="run-btn-text">{% if gen_status.running %}Running...{% else %}Run Generation{% endif %}</span>
+                    </button>
+                    <!-- Stop Button -->
+                    <button id="stop-btn" onclick="stopGeneration()"
+                            class="{% if not gen_status.running %}hidden{% endif %} border border-error/30 text-error font-label-caps px-6 py-4 text-sm uppercase tracking-widest flex items-center gap-3 hover:bg-error hover:text-white transition-colors duration-300">
+                        <span class="material-symbols-outlined">stop</span>
+                        Stop
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Generation Status Panel -->
+    <div id="status-panel" class="{% if not gen_status.running %}hidden{% endif %} mb-10 bg-white border border-[#041909]/10 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#426149] pulse-dot"></span>
+                <span class="font-label-caps text-xs text-[#426149] tracking-widest">GENERATION IN PROGRESS</span>
+            </div>
+            <span class="font-mono-utility text-sm text-[#041909]/40" id="progress-text">
+                {{ gen_status.completed_products }}/{{ gen_status.total_products }} products
+            </span>
+        </div>
+        <!-- Progress bar -->
+        <div class="w-full h-1.5 bg-[#041909]/5 mb-4">
+            <div id="progress-bar" class="h-full bg-[#426149] transition-all duration-500"
+                 style="width: {% if gen_status.total_products > 0 %}{{ (gen_status.completed_products / gen_status.total_products * 100)|int }}{% else %}0{% endif %}%"></div>
+        </div>
+        <div class="flex items-center gap-6 text-sm">
+            <span class="font-mono-utility text-[#041909]/60">SKU: <strong id="current-sku">{{ gen_status.current_sku or '—' }}</strong></span>
+            <span class="font-mono-utility text-[#041909]/60">Step: <strong id="current-step">{{ gen_status.current_step or '—' }}</strong>/4</span>
+        </div>
+        <!-- Log -->
+        <div class="mt-4 max-h-32 overflow-y-auto bg-[#041909]/[0.02] p-3 font-mono-utility text-[11px] text-[#041909]/50 space-y-0.5" id="log-container">
+            {% for msg in gen_status.log %}
+            <div>{{ msg }}</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="flex items-center gap-3 mb-10">
+        <a href="/gallery?filter=all"
+           class="px-5 py-2 font-label-caps text-[11px] tracking-widest uppercase transition-all duration-200 {% if status_filter == 'all' %}bg-[#426149] text-white{% else %}bg-white border border-[#041909]/10 text-[#041909]/60 hover:border-[#426149] hover:text-[#426149]{% endif %}">All</a>
+        <a href="/gallery?filter=pending"
+           class="px-5 py-2 font-label-caps text-[11px] tracking-widest uppercase transition-all duration-200 {% if status_filter == 'pending' %}bg-[#426149] text-white{% else %}bg-white border border-[#041909]/10 text-[#041909]/60 hover:border-[#426149] hover:text-[#426149]{% endif %}">Pending</a>
+        <a href="/gallery?filter=approved"
+           class="px-5 py-2 font-label-caps text-[11px] tracking-widest uppercase transition-all duration-200 {% if status_filter == 'approved' %}bg-[#426149] text-white{% else %}bg-white border border-[#041909]/10 text-[#041909]/60 hover:border-[#426149] hover:text-[#426149]{% endif %}">Approved</a>
+        <a href="/gallery?filter=rejected"
+           class="px-5 py-2 font-label-caps text-[11px] tracking-widest uppercase transition-all duration-200 {% if status_filter == 'rejected' %}bg-[#426149] text-white{% else %}bg-white border border-[#041909]/10 text-[#041909]/60 hover:border-[#426149] hover:text-[#426149]{% endif %}">Rejected</a>
+        <span class="ml-auto font-mono-utility text-sm text-[#041909]/40">{{ products|length }} items</span>
+    </div>
+
+    {% if error %}
+    <div class="p-6 bg-error-container border border-error/20 flex items-center gap-3 mb-10">
+        <span class="material-symbols-outlined text-error">error</span>
+        <span class="text-error font-body-sm">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    {% if products|length == 0 and not error %}
+    <div class="text-center py-24">
+        <span class="material-symbols-outlined text-6xl text-[#041909]/15 mb-4">image</span>
+        <p class="font-headline-sm text-[#041909]/30">No images to display</p>
+        <p class="font-body-sm text-[#041909]/20 mt-2">Run generation or change the filter to see images.</p>
+    </div>
+    {% endif %}
+
+    <!-- Product Groups -->
+    {% for group_name, items in products|groupby('product_name') %}
+    <details class="mb-16 group/details">
+        <summary class="font-headline-md text-primary mb-6 border-b border-[#041909]/10 pb-2 cursor-pointer list-none flex justify-between items-center outline-none hover:text-primary/80 transition-colors [&::-webkit-details-marker]:hidden">
+            <div class="flex items-center gap-4">
+                <span>{{ group_name }}</span>
+                <button onclick="runGroup(event, '{{ group_name|escape }}')" class="text-xs bg-[#DDCBC0] text-[#041909] px-3 py-1 font-label-caps uppercase tracking-wider hover:bg-primary hover:text-white transition-colors flex items-center gap-1 border border-[#041909]/10">
+                    <span class="material-symbols-outlined text-[14px]">play_arrow</span> Generate
+                </button>
+            </div>
+            <span class="material-symbols-outlined transform transition-transform duration-300 group-open/details:-rotate-180 text-primary/50">expand_more</span>
+        </summary>
+        <section class="grid gap-y-12 gap-x-10 dynamic-grid">
+            {% for product in items %}
+            <div class="group @container flex flex-col" id="card-{{ product.sku }}">
+                <div class="aspect-[4/5] bg-surface-container-high relative overflow-hidden border border-[#041909]/10">
+                    <img alt="{{ product.sku or 'Missing SKU' }}"
+                         class="w-full h-full object-cover transition-all duration-500"
+                         src="{{ product.final_url }}"
+                         onerror="this.onerror=null; this.src='{{ product.step2_url }}'; this.onerror=function(){this.style.display='none'; this.parentElement.querySelector('.error-fallback').style.display='flex';}"
+                         loading="lazy"/>
+                    <div class="error-fallback absolute inset-0 hidden items-center justify-center bg-surface-container flex-col text-center p-3 @[250px]:p-4">
+                        <span class="material-symbols-outlined text-2xl @[250px]:text-3xl text-[#041909]/20 mb-1 @[250px]:mb-2">image_not_supported</span>
+                        <span class="text-[10px] @[250px]:text-xs text-[#041909]/50 font-medium">
+                            {% if not product.sku %}
+                                Missing SKU in spreadsheet
+                            {% elif product.status.lower() == 'pending review' %}
+                                Image not generated yet
+                            {% else %}
+                                Generation failed or missing
+                            {% endif %}
+                        </span>
+                    </div>
+                    <!-- Status Badge -->
+                    <div class="absolute top-2 left-2 @[250px]:top-3 @[250px]:left-3 @[300px]:top-4 @[300px]:left-4 flex gap-2">
+                        {% set st = product.status.lower() %}
+                        {% if st == 'approved' %}
+                        <span class="status-badge bg-[#426149]/15 text-[#426149] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[10px] @[300px]:text-xs">check_circle</span> APPROVED
+                        </span>
+                        {% elif st == 'rejected' %}
+                        <span class="status-badge bg-error/10 text-error font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[10px] @[300px]:text-xs">cancel</span> REJECTED
+                        </span>
+                        {% elif st == 'regenerating' %}
+                        <span class="status-badge bg-[#DDCBC0] text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[10px] @[300px]:text-xs spin">refresh</span>
+                            {% set current_sku_step = gen_status.sku_steps.get(product.sku) if gen_status.sku_steps else None %}
+                            {% if current_sku_step %}REGENERATING (STEP {{ current_sku_step }}/{% if current_sku_step == 5 %}5{% else %}4{% endif %}){% else %}REGENERATING{% endif %}
+                        </span>
+                        {% elif st == 'missing sku' %}
+                        <span class="status-badge bg-error/10 text-error font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1 border border-error/20">
+                            <span class="material-symbols-outlined text-[10px] @[300px]:text-xs">warning</span> NO SKU
+                        </span>
+                        {% else %}
+                        <span class="status-badge bg-[#DDCBC0]/60 text-[#041909]/70 font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md">PENDING</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <!-- Card Info -->
+                <div class="mt-3 @[250px]:mt-4 flex flex-col @[280px]:flex-row @[280px]:items-center justify-between gap-2 @[280px]:gap-3">
+                    <div class="min-w-0">
+                        <h3 class="font-headline-sm text-primary text-xs @[200px]:text-sm @[250px]:text-base @[300px]:text-lg truncate" title="{{ product.colour or product.sku or 'Unknown Variant' }}">{{ product.colour or product.sku or 'Unknown Variant' }}</h3>
+                        <div class="flex flex-wrap gap-x-2 gap-y-0.5 items-center mt-0.5 @[300px]:mt-1">
+                            <span class="font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] text-secondary/60 uppercase">{{ product.status }}</span>
+                            {% if product.sku %}
+                            <span class="text-[#041909]/20 text-[9px] hidden @[200px]:inline">•</span>
+                            <span class="font-body-sm text-[9px] @[250px]:text-[10px] @[300px]:text-[11px] text-secondary/80 truncate min-w-0 max-w-[100px] @[250px]:max-w-[150px] @[300px]:max-w-[200px]" title="{{ product.sku }}">{{ product.sku }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if product.status.lower() == 'rejected' %}
+                    <div class="flex w-full mt-1 @[280px]:mt-0" id="action-buttons-{{ product.sku }}">
+                        <button onclick="fullRegenerate('{{ product.sku }}')"
+                                {% if not product.sku %}disabled{% endif %}
+                                class="w-full h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center bg-[#041909]/10 text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase hover:bg-[#041909] hover:text-white transition-all duration-200">
+                            <span class="material-symbols-outlined mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">refresh</span>
+                            Regenerate
+                        </button>
+                    </div>
+                    {% elif product.status.lower() == 'regenerating' %}
+                    <div class="flex w-full mt-1 @[280px]:mt-0" id="action-buttons-{{ product.sku }}">
+                        <button disabled class="w-full h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center bg-[#041909]/20 text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase opacity-50 cursor-not-allowed transition-all duration-200">
+                            <span class="material-symbols-outlined spin mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">refresh</span>
+                            GENERATING...
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="flex gap-1 @[250px]:gap-2 w-full @[280px]:w-auto shrink-0 mt-1 @[280px]:mt-0" id="action-buttons-{{ product.sku }}">
+                        <button onclick="toggleImprove('{{ product.sku }}')"
+                                title="Improve Image"
+                                class="improve-btn flex-[0.8] @[280px]:w-9 @[300px]:w-11 h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center border border-[#041909]/20 text-[#041909] hover:bg-primary/10 transition-all duration-200">
+                            <span class="material-symbols-outlined text-[14px] @[300px]:text-xl">auto_fix_high</span>
+                        </button>
+                        {% if product.status.lower() != 'approved' %}
+                        <button onclick="rejectSku('{{ product.sku }}')"
+                                {% if not product.sku %}disabled{% endif %}
+                                class="reject-btn flex-[1] @[280px]:w-9 @[300px]:w-11 h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center border border-[#041909]/20 text-[#041909] {% if product.sku %}hover:bg-error hover:border-error hover:text-white cursor-pointer{% else %}opacity-50 cursor-not-allowed{% endif %} transition-all duration-200"
+                                title="Reject Image">
+                            <span class="material-symbols-outlined text-[14px] @[300px]:text-xl">close</span>
+                        </button>
+                        {% endif %}
+                        <button onclick="approveSku('{{ product.sku }}')"
+                                {% if not product.sku %}disabled{% endif %}
+                                class="approve-btn flex-[2.5] @[280px]:flex-none @[280px]:px-3 @[300px]:px-5 h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase transition-all duration-200 {% if product.status.lower() == 'approved' %}bg-[#426149] text-white pointer-events-none{% elif product.sku %}bg-primary-container text-on-primary hover:bg-primary cursor-pointer{% else %}bg-primary-container text-on-primary opacity-50 cursor-not-allowed{% endif %}"
+                                title="Approve">
+                            <span class="material-symbols-outlined mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">{% if product.status.lower() == 'approved' %}done{% else %}check{% endif %}</span>
+                            {% if product.status.lower() == 'approved' %}APPROVED{% else %}Approve{% endif %}
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                <!-- Improve Prompt Area -->
+                <div id="improve-area-{{ product.sku }}" class="w-full mt-2 @[280px]:mt-3 hidden">
+                    <input type="text" id="prompt-{{ product.sku }}" placeholder="Enter prompt for improvement pass..." value="{{ product.improve_prompt }}" class="w-full text-[10px] @[250px]:text-xs p-1.5 @[250px]:p-2 border border-[#041909]/20 rounded-sm bg-transparent placeholder-[#041909]/40 text-[#041909] focus:outline-none focus:border-primary">
+                    <button onclick="savePromptAndImprove('{{ product.sku }}')" class="improve-run-btn mt-1.5 @[250px]:mt-2 w-full bg-[#041909]/10 text-[#041909] py-1.5 @[250px]:py-2 text-[9px] @[250px]:text-[10px] font-label-caps uppercase tracking-widest hover:bg-primary hover:text-white transition-colors flex items-center justify-center gap-1 @[250px]:gap-2">
+                        <span class="material-symbols-outlined text-[12px] @[250px]:text-[14px]">refresh</span>
+                        Save & Improve
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+    </details>
+    {% endfor %}
+
+    <!-- Footer -->
+    {% if products|length > 0 %}
+    <footer class="mt-20 border-t border-[#041909]/10 pt-8 flex items-center justify-between">
+        <span class="font-mono-utility text-sm text-secondary/50">{{ products|length }} products shown</span>
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-primary"></span>
+            <span class="font-label-caps text-[10px] text-primary tracking-widest uppercase">System: Connected</span>
+        </div>
+    </footer>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function approveSku(sku) {
+        const card = document.getElementById('card-' + sku);
+        const btn = card.querySelector('.approve-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined spin text-lg">refresh</span>';
+
+        fetch('/api/approve/' + encodeURIComponent(sku), { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Update badge
+                    const badge = card.querySelector('.status-badge');
+                    if (badge) badge.outerHTML = '<span class="status-badge bg-[#426149]/15 text-[#426149] font-label-caps text-[10px] px-3 py-1.5 backdrop-blur-md flex items-center gap-1"><span class="material-symbols-outlined text-xs">check_circle</span> APPROVED</span>';
+                    btn.innerHTML = '<span class="material-symbols-outlined mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">done</span> APPROVED';
+                    btn.className = "approve-btn flex-[2.5] @[280px]:flex-none @[280px]:px-3 @[300px]:px-5 h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase transition-all duration-200 bg-[#426149] text-white pointer-events-none";
+                    
+                    const rejectBtn = card.querySelector('.reject-btn');
+                    if (rejectBtn) rejectBtn.style.display = 'none';
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined mr-1.5 text-lg">check</span> Approve';
+                }
+            })
+            .catch(e => {
+                alert('Network error');
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined mr-1.5 text-lg">check</span> Approve';
+            });
+    }
+
+    function rejectSku(sku) {
+        if (!confirm('Reject ' + sku + '? It will be marked as Rejected.')) return;
+
+        const card = document.getElementById('card-' + sku);
+        const btn = card.querySelector('.reject-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined spin text-lg">refresh</span>';
+
+        fetch('/api/reject/' + encodeURIComponent(sku), { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const badge = card.querySelector('.status-badge');
+                    if (badge) badge.outerHTML = '<span class="status-badge bg-error/10 text-error font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1"><span class="material-symbols-outlined text-[10px] @[300px]:text-xs">cancel</span> REJECTED</span>';
+                    
+                    const btnContainer = document.getElementById('action-buttons-' + sku);
+                    if (btnContainer) {
+                        btnContainer.outerHTML = '<div class="flex w-full mt-1 @[280px]:mt-0" id="action-buttons-' + sku + '"><button onclick="fullRegenerate(\'' + sku + '\')" class="w-full h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center bg-[#041909]/10 text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase hover:bg-[#041909] hover:text-white transition-all duration-200"><span class="material-symbols-outlined mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">refresh</span>Regenerate</button></div>';
+                    }
+                    
+                    const rejArea = document.getElementById('improve-area-' + sku);
+                    if (rejArea) rejArea.classList.add('hidden');
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined text-lg">close</span>';
+                }
+            })
+            .catch(e => {
+                alert('Network error');
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined text-xl">close</span>';
+            });
+    }
+    
+    function fullRegenerate(sku) {
+        if (!confirm('Start a full generation (Steps 1-4) for ' + sku + '?')) return;
+        
+        const card = document.getElementById('card-' + sku);
+        const btnContainer = document.getElementById('action-buttons-' + sku);
+        if (btnContainer) {
+            btnContainer.innerHTML = '<button disabled class="w-full h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center bg-[#041909]/20 text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase opacity-50 cursor-not-allowed transition-all duration-200"><span class="material-symbols-outlined spin mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">refresh</span>Starting...</button>';
+        }
+
+        fetch('/api/regenerate/' + encodeURIComponent(sku), { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const badge = card.querySelector('.status-badge');
+                    if (badge) badge.outerHTML = '<span class="status-badge bg-[#DDCBC0] text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1"><span class="material-symbols-outlined text-[10px] @[300px]:text-xs spin">refresh</span> REGENERATING</span>';
+                    if (btnContainer) {
+                        btnContainer.innerHTML = '<button disabled class="w-full h-8 @[250px]:h-9 @[300px]:h-11 flex items-center justify-center bg-primary text-white font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-xs tracking-widest uppercase pointer-events-none transition-all duration-200"><span class="material-symbols-outlined mr-1 @[300px]:mr-1.5 text-[12px] @[300px]:text-lg">done</span>Running</button>';
+                    }
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                }
+            })
+            .catch(e => {
+                alert('Network error');
+            });
+    }
+
+    function toggleImprove(sku) {
+        const area = document.getElementById('improve-area-' + sku);
+        if (area) {
+            area.classList.toggle('hidden');
+        }
+    }
+
+    function savePromptAndImprove(sku) {
+        const inputField = document.getElementById('prompt-' + sku);
+        const promptText = inputField ? inputField.value : "";
+        
+        const btn = document.querySelector('#improve-area-' + sku + ' .improve-run-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined spin text-[14px]">refresh</span> Starting...';
+        }
+
+        fetch('/api/improve/' + encodeURIComponent(sku), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: promptText })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (btn) {
+                    btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">done</span> Saved & Running';
+                    btn.classList.add('bg-primary', 'text-white');
+                }
+                const card = document.getElementById('card-' + sku);
+                const badge = card.querySelector('.status-badge');
+                if (badge) badge.outerHTML = '<span class="status-badge bg-[#DDCBC0] text-[#041909] font-label-caps text-[8px] @[250px]:text-[9px] @[300px]:text-[10px] px-2 py-1 @[300px]:px-3 @[300px]:py-1.5 backdrop-blur-md flex items-center gap-1"><span class="material-symbols-outlined text-[10px] @[300px]:text-xs spin">refresh</span> REGENERATING</span>';
+            } else {
+                alert('Error: ' + (data.error || 'Unknown'));
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">refresh</span> Save & Improve';
+                }
+            }
+        })
+        .catch(e => {
+            alert('Network error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined text-[14px]">refresh</span> Save & Improve';
+            }
+        });
+    }
+
+    function runGroup(event, groupName) {
+        event.preventDefault(); // Stop the <details> accordion from toggling
+        
+        fetch('/api/run_group', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ group_name: groupName })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            console.error('Error starting group generation:', err);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const slider = document.getElementById('grid-size-slider');
+        if (slider) {
+            slider.addEventListener('input', (e) => {
+                document.documentElement.style.setProperty('--grid-cols', e.target.value);
+            });
+            // Init
+            document.documentElement.style.setProperty('--grid-cols', slider.value);
+        }
+    });
+
+    function runGeneration() {
+        if (!confirm('Start generating images for all products?')) return;
+        const btn = document.getElementById('run-btn');
+        btn.disabled = true;
+        document.getElementById('run-btn-text').textContent = 'Starting...';
+
+        fetch('/api/run', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('run-btn-text').textContent = 'Running...';
+                    document.getElementById('status-panel').classList.remove('hidden');
+                    document.getElementById('stop-btn').classList.remove('hidden');
+                } else {
+                    alert(data.error || 'Failed to start');
+                    btn.disabled = false;
+                    document.getElementById('run-btn-text').textContent = 'Run Generation';
+                }
+            });
+    }
+
+    function stopGeneration() {
+        if (!confirm('Stop generation?')) return;
+        fetch('/api/stop', { method: 'POST' }).then(() => {
+            document.getElementById('run-btn-text').textContent = 'Stopping...';
+        });
+    }
+
+    // Real-time status updates
+    window.onStatusUpdate = function(data) {
+        const panel = document.getElementById('status-panel');
+        const runBtn = document.getElementById('run-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const creditsBanner = document.getElementById('credits-banner');
+
+        if (data.running) {
+            panel.classList.remove('hidden');
+            stopBtn.classList.remove('hidden');
+            runBtn.disabled = true;
+            document.getElementById('run-btn-text').textContent = 'Running...';
+            document.getElementById('current-sku').textContent = data.current_sku || '—';
+            document.getElementById('current-step').textContent = data.current_step || '—';
+            const pct = data.total_products > 0 ? Math.round(data.completed_products / data.total_products * 100) : 0;
+            document.getElementById('progress-bar').style.width = pct + '%';
+            document.getElementById('progress-text').textContent = data.completed_products + '/' + data.total_products + ' products';
+        } else {
+            stopBtn.classList.add('hidden');
+            runBtn.disabled = false;
+            document.getElementById('run-btn-text').textContent = 'Run Generation';
+            if (panel.classList.contains('hidden') === false && data.total_products > 0) {
+                document.getElementById('progress-bar').style.width = '100%';
+                document.getElementById('progress-text').textContent = 'Complete';
+            }
+        }
+        
+        // Update individual cards with their specific steps
+        if (data.sku_steps) {
+            for (const sku in data.sku_steps) {
+                const step = data.sku_steps[sku];
+                const card = document.getElementById('card-' + sku);
+                if (card) {
+                    const badge = card.querySelector('.status-badge');
+                    if (badge && badge.textContent.includes('REGENERATING')) {
+                        const totalSteps = step === 5 ? 5 : 4;
+                        badge.innerHTML = '<span class="material-symbols-outlined text-[10px] @[300px]:text-xs spin">refresh</span> REGENERATING (STEP ' + step + '/' + totalSteps + ')';
+                    }
+                }
+            }
+        }
+
+        if (data.credits_error) {
+            creditsBanner.classList.remove('hidden');
+            document.getElementById('credits-message').textContent = data.credits_error_message || 'Credits exhausted.';
+        } else {
+            creditsBanner.classList.add('hidden');
+        }
+        
+        const rateBanner = document.getElementById('rate-limit-banner');
+        if (data.rate_limit_error) {
+            if (rateBanner) rateBanner.classList.remove('hidden');
+            document.getElementById('rate-limit-message').textContent = data.rate_limit_message || 'Rate limit reached.';
+        } else {
+            if (rateBanner) rateBanner.classList.add('hidden');
+        }
+
+        // Update log
+        const logEl = document.getElementById('log-container');
+        if (data.log && data.log.length > 0) {
+            logEl.innerHTML = data.log.map(m => '<div>' + m + '</div>').join('');
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+    };
+</script>
+{% endblock %}

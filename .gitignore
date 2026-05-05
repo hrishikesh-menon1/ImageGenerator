@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.DS_Store
+credentials.json
+config.json
+resume.json
+debug_sheet.json
+stitch_monks_image_curator.zip
+stitch_monks_image_curator/
+*.pyc

@@ -1,0 +1,6 @@
+{
+    "python.defaultInterpreterPath": "/Users/menon/dev/ImageGenerator/.venv/bin/python",
+    "python.analysis.extraPaths": [
+        "/Users/menon/dev/ImageGenerator/.venv/lib/python3.13/site-packages"
+    ]
+}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>{% block title %}Monks Curator{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700;800;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary": "#ffffff",
+                        "background": "#fef8f4",
+                        "primary": "#2b4933",
+                        "primary-container": "#426149",
+                        "secondary": "#695c53",
+                        "secondary-container": "#f2dfd4",
+                        "surface": "#fef8f4",
+                        "surface-container": "#f3ede9",
+                        "surface-container-high": "#ede7e3",
+                        "surface-container-low": "#f8f2ee",
+                        "on-surface": "#1d1b19",
+                        "on-surface-variant": "#424842",
+                        "outline": "#727972",
+                        "outline-variant": "#c2c8c0",
+                        "error": "#ba1a1a",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                    },
+                    borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
+                    spacing: { unit: "8px", gutter: "24px" },
+                    fontFamily: {
+                        "body-sm": ["Manrope"], "body-md": ["Manrope"], "body-lg": ["Manrope"],
+                        "label-caps": ["Epilogue"], "headline-lg": ["Epilogue"],
+                        "headline-md": ["Epilogue"], "headline-sm": ["Epilogue"],
+                        "mono-utility": ["Manrope"],
+                    },
+                    fontSize: {
+                        "body-sm": ["14px", { lineHeight: "1.4", fontWeight: "400" }],
+                        "label-caps": ["12px", { lineHeight: "1", letterSpacing: "0.1em", fontWeight: "700" }],
+                        "body-md": ["16px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "headline-lg": ["48px", { lineHeight: "1.1", letterSpacing: "-0.04em", fontWeight: "800" }],
+                        "headline-md": ["32px", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "headline-sm": ["20px", { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" }],
+                        "mono-utility": ["13px", { lineHeight: "1", fontWeight: "500" }],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { background-color: #F7F1ED; }
+        .tonal-border { border: 1px solid rgba(4, 25, 9, 0.1); }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+        
+        @media (min-width: 768px) {
+            .dynamic-grid {
+                grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 767px) {
+            .dynamic-grid {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface antialiased min-h-screen">
+    <!-- TopNavBar -->
+    <nav class="fixed top-0 w-full z-50 border-b border-[#041909]/10 bg-[#F7F1ED]/95 backdrop-blur-sm flex justify-between items-center px-8 lg:px-16 h-20 font-['Epilogue'] tracking-tight">
+        <div class="flex items-center gap-8 lg:gap-12">
+            <a href="/" class="text-xl font-bold text-[#041909] uppercase tracking-widest">Monks Curator</a>
+            <div class="hidden md:flex items-center gap-8">
+                <a class="{% if active_page == 'gallery' %}text-[#426149] font-bold border-b-2 border-[#426149] pb-1{% else %}text-[#041909]/60 font-medium hover:text-[#426149]{% endif %} transition-colors duration-200" href="/gallery">Gallery</a>
+                <a class="{% if active_page == 'setup' %}text-[#426149] font-bold border-b-2 border-[#426149] pb-1{% else %}text-[#041909]/60 font-medium hover:text-[#426149]{% endif %} transition-colors duration-200" href="/setup">Settings</a>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <!-- Credits Warning Indicator -->
+            <div id="credits-indicator" class="hidden items-center gap-2 px-3 py-1.5 bg-error-container border border-error/20 rounded-sm">
+                <span class="material-symbols-outlined text-error text-sm">warning</span>
+                <span class="font-label-caps text-[10px] text-error">CREDITS LOW</span>
+            </div>
+            <!-- Generation Status Indicator -->
+            <div id="gen-indicator" class="hidden items-center gap-2 px-3 py-1.5 bg-[#426149]/10 border border-[#426149]/20 rounded-sm">
+                <span class="w-2 h-2 rounded-full bg-[#426149] pulse-dot"></span>
+                <span class="font-label-caps text-[10px] text-[#426149]">GENERATING</span>
+            </div>
+            <a href="/setup" class="material-symbols-outlined text-[#041909]/60 hover:text-[#426149] transition-colors">settings</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 min-h-screen">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Status polling script -->
+    <script>
+        function pollStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    const genInd = document.getElementById('gen-indicator');
+                    const credInd = document.getElementById('credits-indicator');
+                    if (data.running) {
+                        genInd.classList.remove('hidden');
+                        genInd.classList.add('flex');
+                    } else {
+                        genInd.classList.add('hidden');
+                        genInd.classList.remove('flex');
+                    }
+                    if (data.credits_error) {
+                        credInd.classList.remove('hidden');
+                        credInd.classList.add('flex');
+                    } else {
+                        credInd.classList.add('hidden');
+                        credInd.classList.remove('flex');
+                    }
+                    // Update any page-specific status elements
+                    if (window.onStatusUpdate) window.onStatusUpdate(data);
+                })
+                .catch(() => {});
+        }
+        setInterval(pollStatus, 3000);
+        pollStatus();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% set active_page = "setup" %}
+{% block title %}Settings — Monks Curator{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-8 lg:px-16 py-16">
+    <div class="mb-12">
+        <span class="font-label-caps text-xs tracking-[0.2em] text-[#041909]/40 mb-4 block">CONFIGURATION</span>
+        <h1 class="font-headline-lg text-primary leading-none mb-4">API Settings</h1>
+        <p class="font-body-lg text-secondary/70">Configure your API credentials to connect the generation pipeline.</p>
+    </div>
+
+    {% if error %}
+    <div class="mb-8 p-4 bg-error-container border border-error/20 flex items-center gap-3">
+        <span class="material-symbols-outlined text-error">error</span>
+        <span class="text-error font-body-sm">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="mb-8 p-4 bg-[#426149]/10 border border-[#426149]/20 flex items-center gap-3">
+        <span class="material-symbols-outlined text-[#426149]">check_circle</span>
+        <span class="text-[#426149] font-body-sm">Settings saved successfully. <a href="/gallery" class="underline font-bold">Go to Gallery →</a></span>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/setup" class="space-y-12">
+        <!-- Replicate -->
+        <section>
+            <h3 class="font-label-caps text-xs tracking-widest text-[#041909]/40 mb-6 border-b border-[#041909]/10 pb-3">REPLICATE API</h3>
+            <div class="space-y-6">
+                <div>
+                    <label class="font-label-caps text-[10px] text-[#041909]/50 block mb-2">API TOKEN</label>
+                    <input type="password" name="replicate_token" value="{{ config.replicate_token or '' }}"
+                           class="w-full bg-white border border-[#041909]/15 px-4 py-3 font-mono-utility text-on-surface focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                           placeholder="r8_..."/>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cloudinary -->
+        <section>
+            <h3 class="font-label-caps text-xs tracking-widest text-[#041909]/40 mb-6 border-b border-[#041909]/10 pb-3">CLOUDINARY</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="font-label-caps text-[10px] text-[#041909]/50 block mb-2">CLOUD NAME</label>
+                    <input type="text" name="cloudinary_cloud_name" value="{{ config.cloudinary_cloud_name or '' }}"
+                           class="w-full bg-white border border-[#041909]/15 px-4 py-3 font-mono-utility text-on-surface focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                           placeholder="your-cloud-name"/>
+                </div>
+                <div>
+                    <label class="font-label-caps text-[10px] text-[#041909]/50 block mb-2">API KEY</label>
+                    <input type="text" name="cloudinary_api_key" value="{{ config.cloudinary_api_key or '' }}"
+                           class="w-full bg-white border border-[#041909]/15 px-4 py-3 font-mono-utility text-on-surface focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                           placeholder="123456789012345"/>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="font-label-caps text-[10px] text-[#041909]/50 block mb-2">API SECRET</label>
+                    <input type="password" name="cloudinary_api_secret" value="{{ config.cloudinary_api_secret or '' }}"
+                           class="w-full bg-white border border-[#041909]/15 px-4 py-3 font-mono-utility text-on-surface focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                           placeholder="your-api-secret"/>
+                </div>
+            </div>
+        </section>
+
+        <!-- Google Sheets -->
+        <section>
+            <h3 class="font-label-caps text-xs tracking-widest text-[#041909]/40 mb-6 border-b border-[#041909]/10 pb-3">GOOGLE SHEETS</h3>
+            <div class="space-y-6">
+                <div>
+                    <label class="font-label-caps text-[10px] text-[#041909]/50 block mb-2">SHEET ID</label>
+                    <input type="text" name="sheet_id" value="{{ config.sheet_id or '' }}"
+                           class="w-full bg-white border border-[#041909]/15 px-4 py-3 font-mono-utility text-on-surface focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                           placeholder="1imAwXX1V5YJ1df..."/>
+                </div>
+                <div>
+                    <label class="font-label-caps text-[10px] text-[#041909]/50 block mb-2">CREDENTIALS JSON FILE PATH</label>
+                    <input type="text" name="credentials_file" value="{{ config.credentials_file or '' }}"
+                           class="w-full bg-white border border-[#041909]/15 px-4 py-3 font-mono-utility text-on-surface focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                           placeholder="/path/to/credentials.json"/>
+                </div>
+            </div>
+        </section>
+
+        <div class="flex gap-4 pt-4">
+            <button type="submit"
+                    class="bg-[#426149] text-white font-label-caps px-10 py-4 text-sm uppercase tracking-widest flex items-center gap-3 hover:bg-[#2b4933] transition-colors duration-300">
+                <span class="material-symbols-outlined text-lg">save</span>
+                Save Settings
+            </button>
+            <a href="/gallery"
+               class="border border-[#041909]/20 text-[#041909] font-label-caps px-10 py-4 text-sm uppercase tracking-widest flex items-center gap-3 hover:bg-[#041909] hover:text-white transition-colors duration-300">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
